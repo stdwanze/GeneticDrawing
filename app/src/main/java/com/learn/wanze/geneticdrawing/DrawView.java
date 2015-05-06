@@ -25,12 +25,11 @@ public class DrawView extends View implements OnTouchListener, GestureDetector.O
     Paint paintTemplate = new Paint();
     Paint paintCurrent = new Paint();
     Paint paintGeneration = new Paint();
-    Stroke template = new Stroke("base");
-    Stroke current = new Stroke("base");
     GestureDetector gestureDetector;
-    StoredAccess access;
+    SynchronizedModel access;
     DrawMode mode = DrawMode.Input;
-    int nonDrawInput = 0;
+
+    float maxHeight = 0;
     public DrawView(Context context, StoredAccess access) {
         super(context);
         setFocusable(true);
@@ -40,15 +39,17 @@ public class DrawView extends View implements OnTouchListener, GestureDetector.O
 
         paintTemplate.setColor(Color.BLACK);
         paintTemplate.setAntiAlias(true);
+        paintTemplate.setStrokeWidth(5);
 
         paintCurrent.setColor(Color.BLUE);
         paintCurrent.setAntiAlias(true);
+        paintCurrent.setStrokeWidth(20);
 
-        paintGeneration.setColor(Color.GRAY);
+        paintGeneration.setColor(Color.rgb(0, 50, 50));
         paintGeneration.setAntiAlias(true);
-        paintGeneration.setAlpha(20);
-        this.access = access;
-        template.set(access.getLastStroke());
+        paintGeneration.setStrokeWidth(20);
+        this.access = new SynchronizedModel(access);
+
     }
 
     public void makeGestureEnabled(Activity act) {
@@ -57,47 +58,62 @@ public class DrawView extends View implements OnTouchListener, GestureDetector.O
     }
 
     public void renew() {
-        this.access.store(this.current.release());
-        this.template.set(access.getLastStroke());
+        this.access.newStroke();
     }
 
 
     @Override
     public void onDraw(Canvas canvas) {
-        if(mode == DrawMode.Input) {
-            this.template.draw(canvas, this.paintTemplate);
-            this.current.draw(canvas, this.paintCurrent);
-        }
-        else
-        {
-            List<Point> points = this.access.first();
-            while(points != null)
-            {
-                new Stroke(points).draw(canvas,getNextGenerationPaint());
 
-                points = this.access.getNext();
+        canvas.drawLine(0,  this.getHeight()/3*2, this.getWidth(), this.getHeight()/3*2, this.paintTemplate);
+
+        if (mode == DrawMode.Input) {
+
+            new Stroke(this.access.getDrawCopyCurrent()).draw(canvas, this.paintCurrent);
+            new Stroke(this.access.getDrawCopyLastStroke()).draw(canvas, this.paintTemplate);
+
+        } else {
+            Log.d(TAG, "DrawOld mode");
+            List<List<Point>> olds =  this.access.getOlds();
+            int increment = 255 / olds.size();
+            if(increment < 0) increment = 1;
+
+            for (List<Point> stroke : this.access.getOlds()) {
+                new Stroke(stroke).draw(canvas, getNextGenerationPaint(increment));
             }
+
         }
     }
-    public Paint getNextGenerationPaint(){
-        paintGeneration.setAlpha((int)(paintGeneration.getAlpha()* 1.1));
+
+    public Paint getNextGenerationPaint(int increment) {
+
+        int color = paintGeneration.getColor();
+        int red = Color.red(color);
+        int green = Color.green(color);
+        int blue = Color.blue(color);
+
+        paintGeneration.setColor(Color.rgb(red+increment,green,blue));
+
         return paintGeneration;
     }
+
     public boolean onTouch(View view, MotionEvent event) {
         // if(event.getAction() != MotionEvent.ACTION_DOWN)
         // return super.onTouchEvent(event);
+        float height = view.getHeight();
+        maxHeight = (height/3)*2;
+
         this.gestureDetector.onTouchEvent(event);
-        if(nonDrawInput <=0) {
 
-
-            Point point = new Point();
-            point.x = event.getX();
-            point.y = event.getY();
-            current.add(point);
-            invalidate();
-            Log.d(TAG, "point: " + point);
+        Point point = new Point();
+        point.x = event.getX();
+        point.y = event.getY();
+        if(point.y < maxHeight) {
+            this.access.addPoint(point);
         }
-        else { nonDrawInput-- ;}
+        invalidate();
+     //   Log.d(TAG, "point: " + point);
+
         //    return super.onTouchEvent(event);
         return true;
     }
@@ -110,8 +126,7 @@ public class DrawView extends View implements OnTouchListener, GestureDetector.O
 
     @Override
     public boolean onDoubleTap(MotionEvent e) {
-       this.current.removePoints(5);
-        nonDrawInput = 5;
+
         this.renew();
         Log.d(TAG, "onDoubleTap");
         return true;
@@ -150,19 +165,20 @@ public class DrawView extends View implements OnTouchListener, GestureDetector.O
 
     @Override
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-        nonDrawInput = 10;
-        if (e1.getX() < e2.getX()) {
-            Log.d(TAG, "Left to Right swipe performed");
-            this.mode = DrawMode.ShowGenerations;
-            invalidate();
-        }
 
-        if (e1.getX() > e2.getX()) {
-            Log.d(TAG, "Right to Left swipe performed");
-            this.mode = DrawMode.Input;
-            invalidate();
-        }
+        if(maxHeight < e1.getY()) {
+            if (e1.getX() < e2.getX()) {
+                Log.d(TAG, "Left to Right swipe performed");
+                this.mode = DrawMode.ShowGenerations;
+                invalidate();
+            }
 
+            if (e1.getX() > e2.getX()) {
+                Log.d(TAG, "Right to Left swipe performed");
+                this.mode = DrawMode.Input;
+                invalidate();
+            }
+        }
 
         return false;
     }

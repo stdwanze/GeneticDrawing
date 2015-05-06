@@ -46,7 +46,7 @@ public class StoredAccess {
     private void initBase(){
 
         float x = 400;
-        float y = 200;
+        float y = 50;
 
         for(int start = 0; start < 800; start++)
         {
