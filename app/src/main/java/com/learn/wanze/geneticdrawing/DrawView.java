@@ -18,7 +18,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
 
-public class DrawView extends View implements OnTouchListener, GestureDetector.OnDoubleTapListener, GestureDetector.OnGestureListener {
+public class DrawView extends View implements OnTouchListener, GestureDetector.OnDoubleTapListener, GestureDetector.OnGestureListener, IFlingFunc {
     private static final String TAG = "DrawView";
 
     List<Point> points = new ArrayList<Point>();
@@ -28,10 +28,12 @@ public class DrawView extends View implements OnTouchListener, GestureDetector.O
     GestureDetector gestureDetector;
     SynchronizedModel access;
     DrawMode mode = DrawMode.Input;
-
+    FlingHandler flingHandler = new FlingHandler();
     float maxHeight = 0;
+    StrokeChooser chooser;
     public DrawView(Context context, StoredAccess access) {
         super(context);
+
         setFocusable(true);
         setFocusableInTouchMode(true);
 
@@ -49,7 +51,10 @@ public class DrawView extends View implements OnTouchListener, GestureDetector.O
         paintGeneration.setAntiAlias(true);
         paintGeneration.setStrokeWidth(20);
         this.access = new SynchronizedModel(access);
+        this.flingHandler.setHandler(this);
 
+        StrokeRepo fake = new StrokeRepo();
+        this.chooser = new StrokeChooser(fake,(IChooseResultHandler) context);
     }
 
     public void makeGestureEnabled(Activity act) {
@@ -165,8 +170,11 @@ public class DrawView extends View implements OnTouchListener, GestureDetector.O
 
     @Override
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-
         if(maxHeight < e1.getY()) {
+            this.flingHandler.process(e1, e2, velocityX, velocityY);
+        }
+/*
+
             if (e1.getX() < e2.getX()) {
                 Log.d(TAG, "Left to Right swipe performed");
                 this.mode = DrawMode.ShowGenerations;
@@ -180,7 +188,33 @@ public class DrawView extends View implements OnTouchListener, GestureDetector.O
             }
         }
 
+
+  */
         return false;
+    }
+
+    @Override
+    public void up() {
+        this.chooser.show();
+    }
+
+    @Override
+    public void down() {
+
+    }
+
+    @Override
+    public void left() {
+        Log.d(TAG, "Right to Left swipe performed");
+        this.mode = DrawMode.Input;
+        invalidate();
+    }
+
+    @Override
+    public void right() {
+        Log.d(TAG, "Left to Right swipe performed");
+        this.mode = DrawMode.ShowGenerations;
+        invalidate();
     }
 }
 

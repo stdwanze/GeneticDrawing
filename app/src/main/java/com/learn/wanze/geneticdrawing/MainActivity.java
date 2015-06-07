@@ -11,7 +11,7 @@ import android.view.Window;
 import android.view.WindowManager;
 
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements IChooseResultHandler{
     DrawView drawView;
     StoredAccess access;
     private GestureDetector gestureDetector;
@@ -43,4 +43,13 @@ public class MainActivity extends Activity {
     }
 
 
+    @Override
+    public Activity getActivity() {
+        return this;
+    }
+
+    @Override
+    public void onChoose(String name, int id) {
+
+    }
 }
